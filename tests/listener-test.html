@@ -1,0 +1,143 @@
+
+<!DOCTYPE html> 
+<html>
+	<head>
+		<style type="text/css">
+			table { margin: 0 1em 0 0; border: 1px black solid; }
+			output { display: block; white-space: pre; margin: 1em 0; font-family: monospace; }
+			#table-container { display: -webkit-box; display: -moz-box; display: box; }
+		</style>
+		<script type="application/javascript">
+			function createTables() {
+				var numRows, tableContainer;
+
+				numRows = parseInt(document.getElementById('how-many').value, 10);
+
+				if (!numRows) {
+					throw new TypeError('Need number of rows');
+				}
+
+				tableContainer = document.getElementById('table-container');
+				tableContainer.innerHTML = '';
+				tableContainer.appendChild(createTableWithInlineListener(numRows));
+				tableContainer.appendChild(createTableWithOutOfLineListener(numRows));
+			}
+
+			function compareListeners() {
+				var tableAEL, tableOC, output, listeners;
+
+				tableAEL = document.getElementById('table-ael');
+				tableOC = document.getElementById('table-oc');
+
+				if (!tableAEL || !tableOC) {
+					createTables();
+					return compareListeners();
+				}
+
+				listeners = []
+				Array.prototype.forEach.call(tableAEL.querySelectorAll('tbody tr'), function(row) {
+					console.assert(row.lastListener instanceof Function, 'row.lastListener is not a function');
+					listeners.push(row.lastListener);
+				});
+
+				output = 'Listeners added using addEventListener: ' + compareArrayValues(listeners) + ' duplicate listeners out of ' + listeners.length + '.\n';
+
+				listeners = [];
+				Array.prototype.forEach.call(tableOC.querySelectorAll('tbody tr'), function(row) {
+					console.assert(row.onclick instanceof Function, 'row.onclick is not a function');
+					listeners.push(row.onclick);
+				});
+
+				output += 'Listeners added using onclick attribute: ' + compareArrayValues(listeners) + ' duplicate listeners out of ' + listeners.length + '.\n';
+
+				document.getElementById('output').innerHTML = output;
+			}
+
+			function theListener() {
+				console.log('Clicked!');
+			}
+
+
+			/** HELPER FUNCTIONS **/
+
+			function compareArrayValues(array) {
+				var i, j, total = array.length, duplicate = 0;
+
+				top:for (i = 0; i < total; i++) {
+
+					for (j = 0; j < total; j++) {
+						if (array[i] === array[j] && i !== j) {
+							duplicate++;
+
+							continue top;
+						}
+					}
+				}
+
+				return duplicate;
+			}
+
+			function createTableWithInlineListener(numRows) {
+				var i, s = '';
+
+				for (i = 0; i < numRows; i++) {
+					s += '<tr onclick="theListener();"><td>R' + i +'C1</td><td>R' + i + 'C2</td><td>R' + i + 'C3</td></tr>';
+				}
+
+				return createTableFromBody(s, 'Using onclick attribute', 'table-oc');
+			}
+
+			function createTableWithOutOfLineListener(numRows) {
+				var table, i, s = '';
+
+				for (i = 0; i < numRows; i++) {
+					s += '<tr><td>R' + i +'C1</td><td>R' + i + 'C2</td><td>R' + i + 'C3</td></tr>';
+				}
+
+				table = createTableFromBody(s, 'Using addEventListener', 'table-ael');
+
+				Array.prototype.forEach.call(table.querySelectorAll('tbody tr'), function(row) {
+					row.addEventListener('click', theListener);
+				});
+
+				return table;
+			}
+
+			function createTableFromBody(s, type, id) {
+				var table;
+
+				table = document.createElement('table');
+				table.id = id;
+				table.innerHTML = '<thead><tr><th colspan="3">' + type + '</th></tr><tr><th>Column 1</th><th>Column 2</th><th>Column 3</th></tr></thead><tbody>' + s + '</tbody>';
+
+				return table;
+			}
+
+
+			/** HACK ADDEVENTLISTENER **/
+
+			Node.prototype._addEventListener = Node.prototype.addEventListener;
+			Node.prototype.addEventListener = function(type, callback, capture) {
+				this.lastListener = callback;
+				this._addEventListener(type, callback, capture);
+			};
+		</script>
+	</head>
+	<body>
+		<h1>Javascript listener efficiency test</h1>
+		<p>I wanted to find out whether Javascript engines create a new function in memory for every identical listener set in the <code>onclick</code> attribute of a set of elements. This test is the result. It will create two tables - one with the same listener set on each row using the <code>onclick</code> attribute <em>in the HTML string</em>, and the other using <code>addEventListener</code>. At the end of the test the listener on each table row will be compared with every other listener set on each of its siblings, and duplicates will be reported. The check is made using strict equivalance (<code>====</code>) which checks whether the variables either side of the operator refer to the same object in memory.</p>
+
+		<hr>
+
+		<form onsubmit="return false;">
+			<label>Rows: <input type="text" id="how-many" value="100"></label>
+			<button onclick="createTables();">Create tables</button>
+			<button onclick="compareListeners();">Compare listeners</button>
+			<output id="output"></output>
+		</form>
+
+		<hr>
+
+		<div id="table-container"></div>
+	</body>
+</html>
